@@ -1,33 +1,37 @@
 import requests
 import json
+import random
 from os import listdir
 from tkinter import *
 from tkinter import ttk
 
 tk = Tk(className=" Steam Game Picker")
-tk.geometry("500x500")
-
-def getKey(keyFile):
-    with open(keyFile, "r") as file:
-        key = file.readline()
-    return key
-
-def saveInfo(user, data):
-    with open("./steam-picker/users/" + user + ".json", "w") as file:
-        json.dump(data, file)
-
-def loadInfoFromFile(user):
-    with open("./steam-picker/users/" + user + ".json", "r") as file:
-        data = json.load(file)
-    return data
+tk.geometry("500x400")
 
 class UserData:
     def __init__(self):
         self.id = 0
+        self.key = ""
+        self.jsonData = {}
     def setID(self, steamID):
         self.id = steamID
     def getID(self):
         return self.id
+    def setKey(self, keyFile):
+        with open(keyFile, "r") as file:
+            self.key = file.readline()
+    def getKey(self):
+        return self.key
+    def setJSONData(self, data):
+        self.jsonData = data
+    def getJSON(self):
+        return self.jsonData
+    def saveInfo(self):
+        with open("./users/" + self.id + ".json", "w") as file:
+            json.dump(self.jsonData, file)
+    def loadInfo(self):
+        with open("./users/" + self.id + ".json", "r") as file:
+            self.jsonData = json.load(file)
 
 class MainScreen:
     def __init__(self):
@@ -56,10 +60,10 @@ class MainScreen:
         self.textPrompt.place(relx=0.5, rely=0.5, anchor="center")
 
         self.entryField = ttk.Entry(tk, width=20)
-        self.entryField.place(relx=0.5, rely=0.6)
+        self.entryField.place(relx=0.5, rely=0.6, anchor="center")
 
         self.confirm = ttk.Button(tk, text="Confirm", command=self.getIDInfo)
-        self.confirm.place(relx=0.5, rely=0.7)
+        self.confirm.place(relx=0.5, rely=0.7, anchor="center")
     def getIDInfo(self):
         self.userData.setID(self.entryField.get())
         self.destroyItems()
@@ -67,18 +71,18 @@ class MainScreen:
         # TODO: check if steamid64 is valid
 
         # if the id is in the files, prompt loading from it instead
-        usersOnFile = listdir("./steam-picker/users/")
+        usersOnFile = listdir("./users/")
         if (self.userData.getID() + ".json" in usersOnFile):
             self.textPrompt = ttk.Label(tk, text="user info is currently saved to a local file. load it?\nthis will not call the steamweb api.")
             self.textPrompt.place(relx=0.5, rely=0.5, anchor="center")
 
             # yes loads it from a file
             self.confirm = ttk.Button(tk, text="Yes", command=self.loadFromFile)
-            self.confirm.place(relx=0.4, rely=0.7)
+            self.confirm.place(relx=0.4, rely=0.7, anchor="center")
 
             # no skips to prompting user to save info
             self.deny = ttk.Button(tk, text="No", command=self.saveInfoPrompt)
-            self.deny.place(relx=0.6, rely=0.7)
+            self.deny.place(relx=0.6, rely=0.7, anchor="center")
         else:
             # if id is not in files, prompt user to save
             self.saveInfoPrompt()
@@ -88,57 +92,42 @@ class MainScreen:
         self.textPrompt.place(relx=0.5, rely=0.5, anchor="center")
 
         self.confirm = ttk.Button(tk, text="Yes", command=self.setSaveToFile)
-        self.confirm.place(relx=0.4, rely=0.7)
+        self.confirm.place(relx=0.4, rely=0.7, anchor="center")
 
         self.deny = ttk.Button(tk, text="No", command=self.callAPI)
-        self.deny.place(relx=0.6, rely=0.7)
+        self.deny.place(relx=0.6, rely=0.7, anchor="center")
     def setSaveToFile(self):
         # this flags the system to know to save it to a file after it is retrieved from steamweb
         self.saveToFile = True
         self.callAPI()
     def callAPI(self):
-        pass
+        # get the api key from file system
+        self.userData.setKey("./steamweb.key")
+        url = "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=" + self.userData.getKey() + "&steamid=" + self.userData.getID() + "&include_appinfo=1&include_played_free_games=1&format=json"
+        # TODO: check if the information was retrieved correctly
+        self.userData.setJSONData(requests.get(url).json()) # set the json data
+        if (self.saveToFile): # this would have been set earlier
+            self.userData.saveInfo()
+        
+        self.main("Press the button below to select a random game from your library!")
     def loadFromFile(self):
-        pass
-    def main(self):
+        self.userData.loadInfo()
+        self.main("Press the button below to select a random game from your library!")
+    def main(self, gameName):
         self.destroyItems()
 
-        self.gameName = ttk.Label(tk, text="Placeholder")
-        self.gameName.place(relx=0.5, rely=0.3, anchor="center")
+        self.gameName = ttk.Label(tk, text=gameName)
+        self.gameName.place(relx=0.5, rely=0.4, anchor="center")
+
+        self.newGameButton = ttk.Button(tk, text="Pick New Game", command=self.generateNewGame)
+        self.newGameButton.place(relx=0.5, rely=0.6, anchor="center")
+    def generateNewGame(self):
+        gameListLen = (len(self.userData.getJSON()["response"]["games"]) - 1)
+        gameIdx = random.randint(0,gameListLen)
+
+        self.main(self.userData.getJSON()["response"]["games"][gameIdx]["name"])
 
 if __name__ == '__main__':
-    # usersOnFile = listdir("./steam-picker/users/") # get the users in the users dir
-    # # print(usersOnFile[0][:-5])
-    # key = getKey("./steam-picker/steamweb.key") # get API key from file
-    # print("enter steamid64 (decimal): ")
-    # steamID = input()
-
-    # loadFromFile = "\0"
-    # if (steamID + ".json" in usersOnFile): # check if user id is already saved to a file to avoid api call
-    #     loadFromFile = "\0"
-    #     while (loadFromFile.lower() != "y" and loadFromFile.lower() != "n"):
-    #         print("user info is currently saved to a local file. load it? (y/n)\n" \
-    #         "(this is opposed to calling the steamweb api)")
-    #         loadFromFile = input()
-
-    # jsonData = {}
-    # if (loadFromFile.lower() == "y"):
-    #     jsonData = loadInfoFromFile(steamID)
-    # else:
-    #     saveToFile = "\0"
-    #     while (saveToFile.lower() != "y" and saveToFile.lower() != "n"):
-    #         print("save owned game information to local file? (y/n)")
-    #         saveToFile = input()
-
-    #     url = "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=" + key + "&steamid=" + steamID + "&include_appinfo=1&include_played_free_games=1&format=json"
-    #     jsonData = requests.get(url).json()
-        
-    #     if (saveToFile.lower() == "y"):
-    #         saveInfo(steamID, jsonData)
-    
-    # for game in jsonData["response"]["games"]:
-    #     print(game["name"])
-
     mainScreen = MainScreen()
 
     mainScreen.getIDScreen()
