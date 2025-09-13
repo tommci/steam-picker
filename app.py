@@ -4,8 +4,6 @@ import random
 from os import listdir
 from tkinter import *
 from tkinter import ttk
-from io import BytesIO
-from PIL import Image
 
 tk = Tk(className=" Steam Game Picker")
 tk.geometry("500x400")
@@ -82,8 +80,8 @@ class MainScreen:
         self.destroyItems()
 
         self.addLibrary = addingLibrary
-        self.textPrompt = ttk.Label(tk, text="enter steamid64 (decimal).")
-        self.textPrompt.place(relx=0.5, rely=0.5, anchor="center")
+        self.textPrompt = ttk.Label(tk, text="enter steamid64 (decimal).\nnone of the steam data retrieved will be stored on a server.\nyou will be given the option to store retrieved data on your local machine.\nyou MUST PROVIDE your OWN steam web api key!\nview the readme for more info.")
+        self.textPrompt.place(relx=0.5, rely=0.4, anchor="center")
 
         self.entryField = ttk.Entry(tk, width=20)
         self.entryField.place(relx=0.5, rely=0.6, anchor="center")
