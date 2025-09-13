@@ -13,6 +13,8 @@ class UserData:
         self.id = 0
         self.key = ""
         self.jsonData = {}
+        self.gameList = []
+        self.gameListUnplayed = []
     def setID(self, steamID):
         self.id = steamID
     def getID(self):
@@ -24,6 +26,7 @@ class UserData:
         return self.key
     def setJSONData(self, data):
         self.jsonData = data
+        self.generateLists() # generates the lists of game names after setting
     def getJSON(self):
         return self.jsonData
     def saveInfo(self):
@@ -32,16 +35,29 @@ class UserData:
     def loadInfo(self):
         with open("./users/" + self.id + ".json", "r") as file:
             self.jsonData = json.load(file)
+        self.generateLists()
+    def generateLists(self):
+        for game in self.getJSON()["response"]["games"]:
+            self.gameList.append(game["name"])
+            if game["playtime_forever"] == 0:
+                self.gameListUnplayed.append(game["name"])
+    def getRandomGame(self):
+        return random.choice(self.gameList)
+    def getRandomUnplayedGame(self):
+        return random.choice(self.gameListUnplayed)
 
 class MainScreen:
     def __init__(self):
-        self.gameName = Label(tk)
-        self.textPrompt = Label(tk)
-        self.newGameButton = Button(tk)
-        self.entryField = Entry(tk)
-        self.confirm = Button(tk)
-        self.deny = Button(tk)
+        self.gameName = ttk.Label(tk)
+        self.textPrompt = ttk.Label(tk)
+        self.newGameButton = ttk.Button(tk)
+        self.entryField = ttk.Entry(tk)
+        self.confirm = ttk.Button(tk)
+        self.deny = ttk.Button(tk)
+        self.settingsButton = ttk.Button(tk)
+        self.playtimeCheck = ttk.Checkbutton(tk)
 
+        self.filterUnplayed = IntVar(tk, value=0)
         self.userData = UserData()
         self.saveToFile = False
     # clear the tkinter items from the screen for new screen scenes
@@ -52,6 +68,8 @@ class MainScreen:
         self.entryField.destroy()
         self.confirm.destroy()
         self.deny.destroy()
+        self.settingsButton.destroy()
+        self.playtimeCheck.destroy()
     # first screen upon launching, gets steamid64
     def getIDScreen(self):
         self.destroyItems()
@@ -105,13 +123,13 @@ class MainScreen:
         self.userData.setKey("./steamweb.key")
         url = "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=" + self.userData.getKey() + "&steamid=" + self.userData.getID() + "&include_appinfo=1&include_played_free_games=1&format=json"
         # TODO: check if the information was retrieved correctly
-        self.userData.setJSONData(requests.get(url).json()) # set the json data
+        self.userData.setJSONData(requests.get(url).json()) # set the json data, also generates list in UserData
         if (self.saveToFile): # this would have been set earlier
             self.userData.saveInfo()
         
         self.main("Press the button below to select a random game from your library!")
     def loadFromFile(self):
-        self.userData.loadInfo()
+        self.userData.loadInfo() # also generates list in UserData
         self.main("Press the button below to select a random game from your library!")
     def main(self, gameName):
         self.destroyItems()
@@ -121,11 +139,20 @@ class MainScreen:
 
         self.newGameButton = ttk.Button(tk, text="Pick New Game", command=self.generateNewGame)
         self.newGameButton.place(relx=0.5, rely=0.6, anchor="center")
-    def generateNewGame(self):
-        gameListLen = (len(self.userData.getJSON()["response"]["games"]) - 1)
-        gameIdx = random.randint(0,gameListLen)
 
-        self.main(self.userData.getJSON()["response"]["games"][gameIdx]["name"])
+        self.settingsButton = ttk.Button(tk, text="Settings", command=self.settings)
+        self.settingsButton.place(relx=0.1, rely=0.1, anchor="center")
+    def generateNewGame(self):
+        if (self.filterUnplayed.get()): self.main(self.userData.getRandomUnplayedGame())
+        else: self.main(self.userData.getRandomGame())
+    def settings(self):
+        self.destroyItems()
+
+        self.playtimeCheck = ttk.Checkbutton(tk, text="Select Only Unplayed Games", variable=self.filterUnplayed, onvalue=1, offvalue=0)
+        self.playtimeCheck.place(relx=0.5, rely=0.5, anchor="center")
+
+        self.confirm = ttk.Button(tk, text="Confirm", command= lambda: self.main("Press the button below to select a random game from your library!"))
+        self.confirm.place(relx=0.5, rely=0.6, anchor="center")
 
 if __name__ == '__main__':
     mainScreen = MainScreen()
