@@ -4,6 +4,8 @@ import random
 from os import listdir
 from tkinter import *
 from tkinter import ttk
+from io import BytesIO
+from PIL import Image
 
 tk = Tk(className=" Steam Game Picker")
 tk.geometry("500x400")
@@ -57,6 +59,7 @@ class MainScreen:
         self.settingsButton = ttk.Button(tk)
         self.playtimeCheck = ttk.Checkbutton(tk)
         self.addLibraryButton = ttk.Button(tk)
+        self.quitButton = ttk.Button(tk)
 
         self.filterUnplayed = IntVar(tk, value=0)
         self.addLibrary = False
@@ -73,6 +76,7 @@ class MainScreen:
         self.settingsButton.destroy()
         self.playtimeCheck.destroy()
         self.addLibraryButton.destroy()
+        self.quitButton.destroy()
     # first screen upon launching, gets steamid64
     def getIDScreen(self, addingLibrary):
         self.destroyItems()
@@ -153,6 +157,9 @@ class MainScreen:
 
         self.settingsButton = ttk.Button(tk, text="Settings", command=self.settings)
         self.settingsButton.place(relx=0.1, rely=0.1, anchor="center")
+
+        self.quitButton = ttk.Button(tk, text="Quit", command=self.quit)
+        self.quitButton.place(relx=0.5, rely=0.8, anchor="center")
     def generateNewGame(self):
         if (self.filterUnplayed.get()): self.main(self.userData.getRandomUnplayedGame())
         else: self.main(self.userData.getRandomGame())
@@ -168,6 +175,8 @@ class MainScreen:
 
         self.confirm = ttk.Button(tk, text="Confirm", command= lambda: self.main("Press the button below to select a random game from your library!"))
         self.confirm.place(relx=0.5, rely=0.6, anchor="center")
+    def quit(self):
+        tk.destroy()
 
 if __name__ == '__main__':
     mainScreen = MainScreen()
