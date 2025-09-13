@@ -24,22 +24,22 @@ class UserData:
             self.key = file.readline()
     def getKey(self):
         return self.key
-    def setJSONData(self, data):
+    def setJSONData(self, data, addLibrary):
         self.jsonData = data
-        self.generateLists() # generates the lists of game names after setting
+        self.generateLists(addLibrary) # generates the lists of game names after setting
     def getJSON(self):
         return self.jsonData
     def saveInfo(self):
         with open("./users/" + self.id + ".json", "w") as file:
             json.dump(self.jsonData, file)
-    def loadInfo(self):
+    def loadInfo(self, addLibrary):
         with open("./users/" + self.id + ".json", "r") as file:
             self.jsonData = json.load(file)
-        self.generateLists()
-    def generateLists(self):
+        self.generateLists(addLibrary)
+    def generateLists(self, addLibrary):
         for game in self.getJSON()["response"]["games"]:
             self.gameList.append(game["name"])
-            if game["playtime_forever"] == 0:
+            if game["playtime_forever"] == 0 and not addLibrary:
                 self.gameListUnplayed.append(game["name"])
     def getRandomGame(self):
         return random.choice(self.gameList)
@@ -56,8 +56,10 @@ class MainScreen:
         self.deny = ttk.Button(tk)
         self.settingsButton = ttk.Button(tk)
         self.playtimeCheck = ttk.Checkbutton(tk)
+        self.addLibraryButton = ttk.Button(tk)
 
         self.filterUnplayed = IntVar(tk, value=0)
+        self.addLibrary = False
         self.userData = UserData()
         self.saveToFile = False
     # clear the tkinter items from the screen for new screen scenes
@@ -70,10 +72,12 @@ class MainScreen:
         self.deny.destroy()
         self.settingsButton.destroy()
         self.playtimeCheck.destroy()
+        self.addLibraryButton.destroy()
     # first screen upon launching, gets steamid64
-    def getIDScreen(self):
+    def getIDScreen(self, addingLibrary):
         self.destroyItems()
 
+        self.addLibrary = addingLibrary
         self.textPrompt = ttk.Label(tk, text="enter steamid64 (decimal).")
         self.textPrompt.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -82,6 +86,10 @@ class MainScreen:
 
         self.confirm = ttk.Button(tk, text="Confirm", command=self.getIDInfo)
         self.confirm.place(relx=0.5, rely=0.7, anchor="center")
+
+        if self.addLibrary:
+            self.deny = ttk.Button(tk, text="Cancel", command=self.settings)
+            self.deny.place(relx=0.5, rely=0.8, anchor="center")
     def getIDInfo(self):
         self.userData.setID(self.entryField.get())
         self.destroyItems()
@@ -112,27 +120,30 @@ class MainScreen:
         self.confirm = ttk.Button(tk, text="Yes", command=self.setSaveToFile)
         self.confirm.place(relx=0.4, rely=0.7, anchor="center")
 
-        self.deny = ttk.Button(tk, text="No", command=self.callAPI)
+        self.deny = ttk.Button(tk, text="No", command=self.callAPIForGames)
         self.deny.place(relx=0.6, rely=0.7, anchor="center")
     def setSaveToFile(self):
         # this flags the system to know to save it to a file after it is retrieved from steamweb
         self.saveToFile = True
-        self.callAPI()
-    def callAPI(self):
+        self.callAPIForGames()
+    def callAPIForGames(self):
         # get the api key from file system
         self.userData.setKey("./steamweb.key")
         url = "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=" + self.userData.getKey() + "&steamid=" + self.userData.getID() + "&include_appinfo=1&include_played_free_games=1&format=json"
         # TODO: check if the information was retrieved correctly
-        self.userData.setJSONData(requests.get(url).json()) # set the json data, also generates list in UserData
+        self.userData.setJSONData(requests.get(url).json(), self.addLibrary) # set the json data, also generates list in UserData
         if (self.saveToFile): # this would have been set earlier
             self.userData.saveInfo()
         
-        self.main("Press the button below to select a random game from your library!")
+        if self.addLibrary: self.main("Additional user library added to pool.")
+        else: self.main("Press the button below to select a random game from your library!")
     def loadFromFile(self):
-        self.userData.loadInfo() # also generates list in UserData
-        self.main("Press the button below to select a random game from your library!")
+        self.userData.loadInfo(self.addLibrary) # also generates list in UserData
+        if self.addLibrary: self.main("Additional user library added to pool.")
+        else: self.main("Press the button below to select a random game from your library!")
     def main(self, gameName):
         self.destroyItems()
+        self.addLibrary = False
 
         self.gameName = ttk.Label(tk, text=gameName)
         self.gameName.place(relx=0.5, rely=0.4, anchor="center")
@@ -147,9 +158,13 @@ class MainScreen:
         else: self.main(self.userData.getRandomGame())
     def settings(self):
         self.destroyItems()
+        self.addLibrary = False
 
-        self.playtimeCheck = ttk.Checkbutton(tk, text="Select Only Unplayed Games", variable=self.filterUnplayed, onvalue=1, offvalue=0)
-        self.playtimeCheck.place(relx=0.5, rely=0.5, anchor="center")
+        self.playtimeCheck = ttk.Checkbutton(tk, text="Generate Only Unplayed Games", variable=self.filterUnplayed, onvalue=1, offvalue=0)
+        self.playtimeCheck.place(relx=0.5, rely=0.3, anchor="center")
+
+        self.addLibraryButton = ttk.Button(tk, text="Add Another User's Library...", command= lambda: self.getIDScreen(True))
+        self.addLibraryButton.place(relx=0.5, rely=0.4, anchor="center")
 
         self.confirm = ttk.Button(tk, text="Confirm", command= lambda: self.main("Press the button below to select a random game from your library!"))
         self.confirm.place(relx=0.5, rely=0.6, anchor="center")
@@ -157,6 +172,6 @@ class MainScreen:
 if __name__ == '__main__':
     mainScreen = MainScreen()
 
-    mainScreen.getIDScreen()
+    mainScreen.getIDScreen(False)
     tk.mainloop()
     
